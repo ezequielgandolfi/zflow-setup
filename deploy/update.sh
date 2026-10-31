@@ -16,6 +16,7 @@ ENV_FILE=/etc/zflow/zflow.env
 SYSTEMD=/etc/systemd/system
 KEEP=3
 HEALTH_TIMEOUT=60
+export npm_config_update_notifier=false npm_config_progress=false
 
 ACTION=""
 TARGET_VERSION=""
@@ -98,6 +99,29 @@ ensure_node() {
   echo "$dir"
 }
 
+# Systems older than the prebuilt SQLite library's glibc build it instead, which needs a C++20 compiler (g++ 10+).
+ensure_sqlite() {
+  local dir="$1" node="$2" cc=gcc cxx=g++ missing=()
+  local check='new (require("better-sqlite3"))(":memory:").close()'
+  (cd "$dir" && "$node/bin/node" -e "$check" 2>/dev/null) && return 0
+  status installing "Building the database library for this system, which takes a few minutes"
+  for cmd in python3 make g++; do command -v "$cmd" >/dev/null || missing+=("$cmd"); done
+  if [ ${#missing[@]} -gt 0 ]; then
+    DEBIAN_FRONTEND=noninteractive apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3 make g++ >/dev/null || return 1
+  fi
+  if [ "$(g++ -dumpversion | cut -d. -f1)" -lt 10 ]; then
+    command -v g++-10 >/dev/null || DEBIAN_FRONTEND=noninteractive apt-get install -y -qq g++-10 >/dev/null || return 1
+    cc=gcc-10 cxx=g++-10
+  fi
+  # The package loads its prebuilt library first, and only builds when there's none.
+  rm -f "$dir"/node_modules/better-sqlite3/prebuilds/linux-*.node
+  (cd "$dir" && PATH="$node/bin:$PATH" CC="$cc" CXX="$cxx" npm_config_cache=/var/cache/zflow/npm \
+    npm_config_devdir=/var/cache/zflow/node-gyp npm rebuild better-sqlite3 --no-audit --no-fund --loglevel=error) ||
+    return 1
+  (cd "$dir" && "$node/bin/node" -e "$check")
+}
+
 read_env() {
   PORT=4000 HOST=127.0.0.1 CONTROL_PORT=4100
   # shellcheck disable=SC1090
@@ -152,14 +176,14 @@ restore_db() {
 
 prune() {
   local keep_current keep_node
-  keep_current="$(readlink -f "$OPT/current" || true)"
+  keep_current="$(readlink -e "$OPT/current" || true)"
   # shellcheck disable=SC2012
   ls -1dt "$OPT"/releases/*/ 2>/dev/null | tail -n +$((KEEP + 1)) | while read -r dir; do
     [ "$(readlink -f "$dir")" != "$keep_current" ] && rm -rf "$dir"
   done
   # shellcheck disable=SC2012
   ls -1dt "$DATA"/backups/*/ 2>/dev/null | tail -n +$((KEEP + 1)) | xargs -r rm -rf
-  keep_node="$(readlink -f "$OPT/node" || true)"
+  keep_node="$(readlink -e "$OPT/node" || true)"
   for dir in "$OPT"/node-*; do
     [ -d "$dir" ] || continue
     local used=false release
@@ -190,11 +214,15 @@ deploy() {
     rm -rf "$dir"
     fail "Couldn't install the dependencies of $TARGET_VERSION"
   }
+  ensure_sqlite "$dir" "$node" || {
+    rm -rf "$dir"
+    fail "Couldn't build the database library for $TARGET_VERSION. Upgrade to Ubuntu 22.04, Debian 12 or newer"
+  }
   chown -R root:root "$dir"
 
   status restarting "Restarting zflow on $TARGET_VERSION"
-  old_release="$(readlink -f "$OPT/current" 2>/dev/null || true)"
-  old_node="$(readlink -f "$OPT/node" 2>/dev/null || true)"
+  old_release="$(readlink -e "$OPT/current" 2>/dev/null || true)"
+  old_node="$(readlink -e "$OPT/node" 2>/dev/null || true)"
   systemctl stop zflow.target 2>/dev/null || true
   backup="$(backup_db)"
   ln -sfn "$dir" "$OPT/current"
@@ -207,6 +235,8 @@ deploy() {
     status "done" "zflow $TARGET_VERSION is running"
     return 0
   fi
+  log "Last lines of the zflow logs:"
+  journalctl -u zflow-engine -u zflow-studio -n 30 --no-pager -o cat 2>/dev/null | sed 's/^/  /' >&2 || true
   if [ -z "$old_release" ]; then
     fail "zflow $TARGET_VERSION didn't start. See: journalctl -u zflow-engine -u zflow-studio"
   fi
