@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Manages an installed zflow. Installed as /opt/zflow/bin/zflow, linked from /usr/local/bin/zflow.
+set -euo pipefail
+
+OPT=/opt/zflow
+
+usage() {
+  cat <<'EOF'
+Usage: zflow <command>
+
+  status                 Shows the version and whether the services are running
+  logs [engine|studio]   Follows the log (both services by default)
+  restart                Restarts zflow
+  update [version]       Updates to the latest release, or to the given version
+  version                Prints the installed version
+  uninstall [--purge]    Removes zflow; --purge also deletes its data and settings
+EOF
+}
+
+as_root() {
+  [ "$(id -u)" -eq 0 ] || {
+    echo "Run this with sudo: sudo zflow $*" >&2
+    exit 1
+  }
+}
+
+version() { cat "$OPT/current/VERSION" 2>/dev/null || echo "not installed"; }
+
+case "${1:-}" in
+  status)
+    echo "zflow $(version)"
+    systemctl --no-pager status zflow-engine.service zflow-studio.service | grep -E '●|Active:' || true
+    ;;
+  logs)
+    case "${2:-}" in
+      engine) journalctl -u zflow-engine -f ;;
+      studio) journalctl -u zflow-studio -f ;;
+      "") journalctl -u zflow-engine -u zflow-studio -f ;;
+      *) usage && exit 1 ;;
+    esac
+    ;;
+  restart) as_root restart && exec "$OPT/bin/zflow-update" --restart ;;
+  update) as_root update && exec "$OPT/bin/zflow-update" --update "${2:-}" ;;
+  version) version ;;
+  uninstall)
+    as_root uninstall
+    purge=false
+    [ "${2:-}" = "--purge" ] && purge=true
+    systemctl disable --now zflow.target zflow-engine.service zflow-studio.service zflow-update.path \
+      >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/zflow.target /etc/systemd/system/zflow-engine.service \
+      /etc/systemd/system/zflow-studio.service /etc/systemd/system/zflow-update.path \
+      /etc/systemd/system/zflow-update.service /usr/local/bin/zflow
+    systemctl daemon-reload
+    rm -rf "$OPT" /var/cache/zflow
+    if $purge; then
+      rm -rf /var/lib/zflow /etc/zflow
+      userdel zflow 2>/dev/null || true
+      echo "zflow and its data were removed."
+    else
+      echo "zflow was removed. Its data is still in /var/lib/zflow and its settings in /etc/zflow."
+    fi
+    ;;
+  -h | --help | help) usage ;;
+  *) usage && exit 1 ;;
+esac

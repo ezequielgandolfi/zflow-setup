@@ -1,0 +1,10 @@
+# The Studio asks for updates and restarts by writing request.json; the updater deletes it when it starts.
+[Unit]
+Description=Watch for zflow update requests
+
+[Path]
+PathExists=/var/lib/zflow/update/request.json
+Unit=zflow-update.service
+
+[Install]
+WantedBy=multi-user.target

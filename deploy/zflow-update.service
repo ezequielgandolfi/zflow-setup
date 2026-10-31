@@ -1,0 +1,7 @@
+[Unit]
+Description=zflow updater
+
+[Service]
+Type=oneshot
+ExecStart=/opt/zflow/bin/zflow-update
+TimeoutStartSec=30min

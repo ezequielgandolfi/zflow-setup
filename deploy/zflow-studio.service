@@ -1,0 +1,23 @@
+[Unit]
+Description=zflow Studio
+PartOf=zflow.target
+After=network-online.target zflow-engine.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zflow
+Group=zflow
+Environment=ZFLOW_DB=/var/lib/zflow/zflow.db
+Environment=ZFLOW_STUDIO_DIR=/opt/zflow/current/studio
+Environment=ZFLOW_UPDATES_DIR=/var/lib/zflow/update
+EnvironmentFile=/etc/zflow/zflow.env
+WorkingDirectory=/opt/zflow/current
+ExecStart=/opt/zflow/node/bin/node app/studio-server.js
+Restart=always
+RestartSec=3
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+[Install]
+WantedBy=zflow.target

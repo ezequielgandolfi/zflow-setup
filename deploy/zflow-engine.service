@@ -1,0 +1,22 @@
+[Unit]
+Description=zflow engine
+PartOf=zflow.target
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zflow
+Group=zflow
+Environment=ZFLOW_DB=/var/lib/zflow/zflow.db
+EnvironmentFile=/etc/zflow/zflow.env
+WorkingDirectory=/opt/zflow/current
+ExecStart=/opt/zflow/node/bin/node app/engine.js
+Restart=always
+RestartSec=3
+# The engine stops runners and closes services on SIGTERM; give it time before SIGKILL.
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+[Install]
+WantedBy=zflow.target

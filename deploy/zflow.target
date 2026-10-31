@@ -1,0 +1,6 @@
+[Unit]
+Description=zflow
+Wants=zflow-engine.service zflow-studio.service
+
+[Install]
+WantedBy=multi-user.target

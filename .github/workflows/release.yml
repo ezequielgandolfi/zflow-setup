@@ -1,0 +1,31 @@
+# Publishes a release for every v* tag. The zflow repo's release workflow pushes the release files to the dist
+# branch, with a copy of this workflow (tag pushes run the workflow of the tagged commit), and tags them. This packs
+# the tag into the tarball that install.sh and the Studio's updater download.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - name: Pack
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          name="zflow-$version.tar.gz"
+          [ "$(cat VERSION)" = "$version" ] || { echo "VERSION says $(cat VERSION), the tag $GITHUB_REF_NAME"; exit 1; }
+          git archive --format=tar --prefix=zflow/ "$GITHUB_REF_NAME" -- . ':!RELEASE_NOTES.md' ':!.github' | gzip -9 > "$name"
+          sha256sum "$name" > "$name.sha256"
+          echo "ASSET=$name" >> "$GITHUB_ENV"
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "$ASSET" "$ASSET.sha256" --title "zflow ${GITHUB_REF_NAME#v}" --notes-file RELEASE_NOTES.md
