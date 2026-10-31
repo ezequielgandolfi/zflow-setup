@@ -8,6 +8,8 @@
 set -euo pipefail
 
 REPO="ezequielgandolfi/zflow-setup"
+# The glibc zflow's prebuilt database library (better-sqlite3) needs; older systems build it themselves.
+MIN_GLIBC=2.34
 
 VERSION=""
 FILE=""
@@ -15,6 +17,7 @@ PORT=""
 HOST=""
 UNINSTALL=false
 PURGE=false
+YES=false
 
 usage() {
   cat <<'EOF'
@@ -26,6 +29,7 @@ Usage: install.sh [options]
   --file <tarball>    Install a release tarball from disk instead of downloading it
   --uninstall         Remove zflow, keeping its data in /var/lib/zflow
   --purge             With --uninstall, also delete the data and settings
+  --yes               Don't ask before building the database library on systems older than Debian 12 or Ubuntu 22.04
 EOF
 }
 
@@ -43,6 +47,7 @@ while [ $# -gt 0 ]; do
     --file) FILE="${2:-}" && shift ;;
     --uninstall) UNINSTALL=true ;;
     --purge) PURGE=true ;;
+    --yes) YES=true ;;
     -h | --help) usage && exit 0 ;;
     *) usage >&2 && exit 1 ;;
   esac
@@ -69,6 +74,20 @@ case "$(uname -m)" in
 esac
 [ -z "$VERSION" ] || [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "--version takes a version like 1.2.0"
 [ -z "$PORT" ] || [[ "$PORT" =~ ^[0-9]+$ ]] || die "--port takes a number"
+
+glibc="$(getconf GNU_LIBC_VERSION 2>/dev/null | awk '{print $2}')"
+if [ -n "$glibc" ] && [ "$(printf '%s\n' "$MIN_GLIBC" "$glibc" | sort -V | head -1)" != "$MIN_GLIBC" ]; then
+  echo -e "\033[0;33m[zflow]\033[0m This system has glibc $glibc, older than the $MIN_GLIBC zflow's database library"
+  echo "        is built for. zflow can build the library here: it installs python3, make and g++, and each install"
+  echo "        and update takes a few minutes longer. Upgrading to Debian 12, Ubuntu 22.04 or newer avoids this."
+  if ! $YES; then
+    { : </dev/tty; } 2>/dev/null ||
+      die "Can't ask without a terminal. Run the installer again with --yes to build the library"
+    answer=""
+    read -r -p "        Build it? [y/N] " answer </dev/tty || true
+    [[ "$answer" =~ ^[Yy] ]] || die "Not installed. Upgrade the system, or run the installer again and answer yes"
+  fi
+fi
 
 missing=()
 for cmd in curl tar xz sha256sum flock; do command -v "$cmd" >/dev/null || missing+=("$cmd"); done

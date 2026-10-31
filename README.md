@@ -6,6 +6,9 @@ The [releases](https://github.com/ezequielgandolfi/zflow-setup/releases) of this
 ## Requirements
 
 - Debian, Ubuntu or Raspberry Pi OS, 64-bit (x86_64 or aarch64), with systemd
+- Debian 12, Ubuntu 22.04, Raspberry Pi OS bookworm or newer (glibc 2.34+). On older systems (Debian 11,
+  Ubuntu 20.04) the installer asks before building zflow's database library: it installs python3, make and g++,
+  and installs and updates take a few minutes longer
 - Root access (sudo)
 - Internet access while installing and updating (GitHub, nodejs.org and the npm registry)
 
@@ -31,6 +34,7 @@ curl -fsSL https://raw.githubusercontent.com/ezequielgandolfi/zflow-setup/main/i
 | `--file <tarball>`  | Installs a release tarball from disk                                               |
 | `--uninstall`       | Removes zflow, keeping its data                                                    |
 | `--purge`           | With `--uninstall`, also deletes the data and settings                             |
+| `--yes`             | Builds the database library on older systems without asking                        |
 
 Running the installer again reinstalls over the current copy and keeps the data and settings.
 
