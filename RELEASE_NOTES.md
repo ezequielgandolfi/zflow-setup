@@ -1,4 +1,4 @@
 ## Changes
 
-- studio auth
+- diagnosis
 - ui improvements
