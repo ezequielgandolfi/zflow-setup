@@ -12,6 +12,7 @@ Usage: zflow <command>
   logs [engine|studio]   Follows the log (both services by default)
   restart                Restarts zflow
   update [version]       Updates to the latest release, or to the given version
+  reset-password         Clears the admin password, so the Studio asks for a new one
   version                Prints the installed version
   uninstall [--purge]    Removes zflow; --purge also deletes its data and settings
 EOF
@@ -42,6 +43,13 @@ case "${1:-}" in
   restart) as_root restart && exec "$OPT/bin/zflow-update" --restart ;;
   update) as_root update && exec "$OPT/bin/zflow-update" --update "${2:-}" ;;
   version) version ;;
+  reset-password)
+    as_root reset-password
+    cd "$OPT/current"
+    set -a && . /etc/zflow/zflow.env && set +a
+    exec runuser -u zflow -- env ZFLOW_DB=/var/lib/zflow/zflow.db "$OPT/node/bin/node" app/studio-server.js \
+      --reset-password
+    ;;
   uninstall)
     as_root uninstall
     purge=false

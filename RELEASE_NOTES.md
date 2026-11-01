@@ -1,3 +1,4 @@
 ## Changes
 
-- fix old distro install
+- studio auth
+- ui improvements
