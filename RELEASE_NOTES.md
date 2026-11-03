@@ -1,6 +1,5 @@
-- Projects call runners integrations, since they hold project settings such as notifications besides starting automations.
-- Notifications: send SMS from automations through your Twilio account, with limits per hour and a history.
-- Debug: capture an automation's runs and replay them step by step, or try the draft with test data.
-- Editor: on phones and tablets, touching the canvas hides the components and settings bars.
-- Cooldown and Reset cooldown steps, to continue at most once in a while, like one alert per hour for each device.
+- Plugin kit: plugins that bring devices can show the Devices plugin's device page, with its state, controls and history, instead of building their own, adding sections and buttons of their own.
+- Projects: delete an integration whose plugin was removed.
+- Devices: the Device history and Device activity widgets work for devices of any plugin that keeps their history.
+- Plugin kit: a guide to building Studio pages that match the Studio, with more of its parts shared with plugins.
 
