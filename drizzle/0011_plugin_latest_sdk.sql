@@ -1,0 +1,1 @@
+ALTER TABLE `plugin_states` ADD `latest_sdk` text;
