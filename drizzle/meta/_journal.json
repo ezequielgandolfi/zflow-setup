@@ -85,6 +85,13 @@
       "when": 1793812595303,
       "tag": "0011_plugin_latest_sdk",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1794951569347,
+      "tag": "0012_weather_location",
+      "breakpoints": true
     }
   ]
 }
